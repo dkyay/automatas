@@ -1,0 +1,2 @@
+# automatas
+codigo cursor automatas
