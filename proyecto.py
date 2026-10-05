@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import scrolledtext
 import ply.lex as lex
+from codigo_intermedio import generar_codigo_intermedio
 from parser import Parser
 
 # ==========================================
@@ -159,6 +160,23 @@ def _tabla_simbolos_para_parser():
     return vista
 
 
+def _tabla_para_codigo_intermedio():
+    """Diccionario {nombre: tipo} en orden de declaración."""
+    vista = {}
+    for entrada in tabla_simbolos_memoria:
+        nombre = entrada['nombre']
+        if nombre not in vista:
+            vista[nombre] = entrada['tipo']
+    return vista
+
+
+def _mostrar_codigo_intermedio(texto):
+    widget_codigo.config(state="normal")
+    widget_codigo.delete("1.0", "end")
+    widget_codigo.insert("end", texto)
+    widget_codigo.config(state="disabled")
+
+
 def ejecutar_analisis():
     try:
         _ejecutar_analisis_interno()
@@ -184,6 +202,7 @@ def _ejecutar_analisis_interno():
         tabla_errores.delete(item)
     for item in tabla_simbolos.get_children():
         tabla_simbolos.delete(item)
+    _mostrar_codigo_intermedio("")
 
     codigo_fuente = cuadro_texto.get("1.0", tk.END)
     lexer.input(codigo_fuente)
@@ -311,19 +330,23 @@ def _ejecutar_analisis_interno():
         widget_errores_sint.insert("end", "✓ Sin errores sintácticos.")
     widget_errores_sint.config(state="disabled")
 
+    _mostrar_codigo_intermedio(
+        generar_codigo_intermedio(_tabla_para_codigo_intermedio())
+    )
+
 
 # ==========================================
 # 3. VENTANA (TKINTER)
 # ==========================================
 
 ventana = tk.Tk()
-ventana.title("Lenguaje Genesis — Análisis Léxico y Sintáctico")
+ventana.title("Lenguaje Genesis — Análisis y Código Intermedio")
 ventana.geometry("750x820")
 
 contenedor = tk.Frame(ventana, padx=20, pady=20)
 contenedor.pack(expand=True, fill="both")
 
-titulo = tk.Label(contenedor, text="Analizador Léxico y Sintáctico — Genesis")
+titulo = tk.Label(contenedor, text="Analizador Léxico, Sintáctico y Código Intermedio — Genesis")
 titulo.config(font=("Arial", 16, "bold"))
 titulo.pack(side="top", anchor="n", pady=(0, 20))
 
@@ -399,6 +422,17 @@ widget_errores_sint = scrolledtext.ScrolledText(
 )
 widget_errores_sint.tag_config("error", foreground="red")
 widget_errores_sint.pack(expand=True, fill="both")
+
+frame_codigo = ttk.Frame(pestanas)
+pestanas.add(frame_codigo, text="Código Intermedio")
+widget_codigo = scrolledtext.ScrolledText(
+    frame_codigo,
+    height=12,
+    font=("Courier New", 11),
+    wrap="none",
+    state="disabled",
+)
+widget_codigo.pack(expand=True, fill="both")
 
 if __name__ == "__main__":
     ventana.mainloop()
