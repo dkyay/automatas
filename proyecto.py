@@ -305,6 +305,7 @@ def _ejecutar_analisis_interno():
         for error in lista_errores:
             tabla_errores.insert("", tk.END, values=(error[0], error[1], error[2]))
 
+    arbol = None
     if lista_tokens:
         parser = Parser(
             tokens=lista_tokens,
@@ -331,7 +332,7 @@ def _ejecutar_analisis_interno():
     widget_errores_sint.config(state="disabled")
 
     _mostrar_codigo_intermedio(
-        generar_codigo_intermedio(_tabla_para_codigo_intermedio())
+        generar_codigo_intermedio(_tabla_para_codigo_intermedio(), arbol)
     )
 
 
