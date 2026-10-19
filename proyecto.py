@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import scrolledtext
 import ply.lex as lex
 from parser import Parser
+from codigo_intermedio import generar_codigo_intermedio
 
 # ==========================================
 # 1. DEFINICIÓN DEL ANALIZADOR LÉXICO
@@ -159,6 +160,60 @@ def _tabla_simbolos_para_parser():
     return vista
 
 
+def _tabla_para_codigo_intermedio():
+    """Diccionario {nombre: tipo} en orden de declaración."""
+    vista = {}
+    for entrada in tabla_simbolos_memoria:
+        nombre = entrada['nombre']
+        if nombre not in vista:
+            vista[nombre] = entrada['tipo']
+    return vista
+
+
+# Último AST y errores sintácticos para generar CI bajo demanda.
+ultimo_arbol = None
+ultimos_errores_sint = []
+
+
+def _mostrar_codigo_intermedio(texto):
+    widget_codigo.config(state="normal")
+    widget_codigo.delete("1.0", "end")
+    widget_codigo.insert("end", texto)
+    widget_codigo.config(state="disabled")
+
+
+def _indice_pestana(nombre):
+    for i in range(pestanas.index("end")):
+        if pestanas.tab(i, "text") == nombre:
+            return i
+    return None
+
+
+def generar_y_mostrar_ci():
+    """Genera el código intermedio (.DATA / .CODE) y abre la pestaña CI."""
+    global ultimo_arbol, ultimos_errores_sint
+
+    # Si aún no hay análisis, lo ejecuta primero.
+    if ultimo_arbol is None and not tabla_simbolos_memoria:
+        ejecutar_analisis()
+
+    if ultimos_errores_sint:
+        _mostrar_codigo_intermedio(
+            "No se puede generar código intermedio mientras haya errores sintácticos.\n"
+            "Corrige el programa y vuelve a analizar."
+        )
+    else:
+        texto = generar_codigo_intermedio(
+            _tabla_para_codigo_intermedio(),
+            ultimo_arbol,
+        )
+        _mostrar_codigo_intermedio(texto)
+
+    idx = _indice_pestana("CI")
+    if idx is not None:
+        pestanas.select(idx)
+
+
 def ejecutar_analisis():
     try:
         _ejecutar_analisis_interno()
@@ -174,8 +229,12 @@ def ejecutar_analisis():
 
 
 def _ejecutar_analisis_interno():
+    global ultimo_arbol, ultimos_errores_sint
+
     lista_errores.clear()
     tabla_simbolos_memoria.clear()
+    ultimo_arbol = None
+    ultimos_errores_sint = []
     lexer.lineno = 1
 
     for item in tabla_lexemas.get_children():
@@ -184,6 +243,7 @@ def _ejecutar_analisis_interno():
         tabla_errores.delete(item)
     for item in tabla_simbolos.get_children():
         tabla_simbolos.delete(item)
+    _mostrar_codigo_intermedio("")
 
     codigo_fuente = cuadro_texto.get("1.0", tk.END)
     lexer.input(codigo_fuente)
@@ -294,8 +354,12 @@ def _ejecutar_analisis_interno():
         arbol, errores_sint = parser.parsear()
         texto_arbol = arbol.imprimir() if arbol else "No se pudo construir el árbol."
     else:
+        arbol = None
         errores_sint = []
         texto_arbol = "Programa\n  ├── inicio\n  └── fin"
+
+    ultimo_arbol = arbol
+    ultimos_errores_sint = list(errores_sint)
 
     widget_arbol.config(state="normal")
     widget_arbol.delete("1.0", "end")
@@ -317,13 +381,13 @@ def _ejecutar_analisis_interno():
 # ==========================================
 
 ventana = tk.Tk()
-ventana.title("Lenguaje Genesis — Análisis Léxico y Sintáctico")
+ventana.title("Lenguaje Genesis — Análisis y Código Intermedio")
 ventana.geometry("750x820")
 
 contenedor = tk.Frame(ventana, padx=20, pady=20)
 contenedor.pack(expand=True, fill="both")
 
-titulo = tk.Label(contenedor, text="Analizador Léxico y Sintáctico — Genesis")
+titulo = tk.Label(contenedor, text="Analizador Léxico, Sintáctico y Código Intermedio — Genesis")
 titulo.config(font=("Arial", 16, "bold"))
 titulo.pack(side="top", anchor="n", pady=(0, 20))
 
@@ -333,15 +397,29 @@ lbl_editor.pack(anchor="w")
 cuadro_texto = tk.Text(contenedor, height=10, width=80, font=("Courier", 11))
 cuadro_texto.pack(pady=5)
 
+frame_botones = tk.Frame(contenedor)
+frame_botones.pack(pady=15)
+
 btn_analizar = tk.Button(
-    contenedor,
+    frame_botones,
     text="Analizar",
     bg="#4CAF50",
     fg="white",
     font=("Arial", 12, "bold"),
     command=ejecutar_analisis,
 )
-btn_analizar.pack(pady=15)
+btn_analizar.pack(side="left", padx=8)
+
+btn_ci = tk.Button(
+    frame_botones,
+    text="CI",
+    bg="#2196F3",
+    fg="white",
+    font=("Arial", 12, "bold"),
+    command=generar_y_mostrar_ci,
+    width=6,
+)
+btn_ci.pack(side="left", padx=8)
 
 lbl_resultados = tk.Label(contenedor, text="2. Resultados del Análisis:", font=("Arial", 12, "bold"))
 lbl_resultados.pack(anchor="w", pady=(10, 5))
@@ -399,6 +477,17 @@ widget_errores_sint = scrolledtext.ScrolledText(
 )
 widget_errores_sint.tag_config("error", foreground="red")
 widget_errores_sint.pack(expand=True, fill="both")
+
+frame_codigo = ttk.Frame(pestanas)
+pestanas.add(frame_codigo, text="CI")
+widget_codigo = scrolledtext.ScrolledText(
+    frame_codigo,
+    height=12,
+    font=("Courier New", 11),
+    wrap="none",
+    state="disabled",
+)
+widget_codigo.pack(expand=True, fill="both")
 
 if __name__ == "__main__":
     ventana.mainloop()
