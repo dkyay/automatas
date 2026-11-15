@@ -1,15 +1,28 @@
-﻿# automatas
+﻿# automatas — Genesis
 
-Analizador del **Lenguaje Genesis** (Python + PLY + Tkinter): léxico, sintáctico, código intermedio (CI) y código objeto (CO).
+Compilador del **Lenguaje Genesis** (Python + PLY + Tkinter): léxico, sintáctico, semántico, código intermedio (CI) y código objeto (CO).
+
+## Interfaz
+
+Layout principal (ventana `Genesis`):
+
+```
+[Genesis]          [Tokens] [Parsear] [Semántico] [Ejemplo] [Limpiar]
+[ Programa ]       [ Tokens ]       [ Sintaxis ]
+[ CI ]             [ CO ]
+[ ensamblador ]    [ DIR | CONTENIDO | HEX ]
+```
+
+El panel **CO** ocupa el espacio a la derecha del CI (debajo de Sintaxis).
 
 ## Archivos
 
-- `proyecto.py` — lexer PLY e interfaz gráfica (botones CI / CO)
+- `proyecto.py` — interfaz Genesis + lexer
 - `parser.py` — analizador sintáctico LL(1)
 - `ast_nodes.py` — nodos del AST
 - `analisis_estructuras.py` — análisis de estructuras
-- `codigo_intermedio.py` — generación de CI estilo MASM 8086 (`.DATA` / `.CODE`)
-- `codigo_objeto.py` — codificación binaria x86 (tabla DIR / CONTENIDO / HEX)
+- `codigo_intermedio.py` — CI estilo MASM 8086
+- `codigo_objeto.py` — codificación binaria x86 (DIR / CONTENIDO / HEX)
 
 ## Uso
 
@@ -18,6 +31,7 @@ pip install -r requirements.txt
 python proyecto.py
 ```
 
-1. Escribe un programa Genesis y pulsa **Analizar**.
-2. **CI** muestra el ensamblador intermedio.
-3. **CO** (a la derecha del CI) muestra la tabla de código objeto con direcciones en binario, contenido y hexadecimal.
+1. **Ejemplo** carga un programa de muestra.
+2. **Tokens** / **Parsear** / **Semántico** llenan los paneles superiores.
+3. **CI** genera el ensamblador intermedio.
+4. **CO** genera la tabla de código objeto a la derecha.

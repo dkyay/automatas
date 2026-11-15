@@ -4,7 +4,7 @@ from tkinter import scrolledtext
 import ply.lex as lex
 from parser import Parser
 from codigo_intermedio import generar_codigo_intermedio
-from codigo_objeto import generar_codigo_objeto, generar_filas_objeto
+from codigo_objeto import generar_filas_objeto
 
 # ==========================================
 # 1. DEFINICIÓN DEL ANALIZADOR LÉXICO
@@ -29,6 +29,20 @@ reservadas = {
 
 TIPOS_DATO = {'INT', 'BOOLEAN', 'STRING'}
 
+# Etiquetas cortas como en la interfaz Genesis (PR, TD, PYC, …).
+ETIQUETA_TOKEN = {
+    'INICIO': 'PR', 'FIN': 'PR', 'WHILE': 'PR', 'IF': 'PR', 'ELSE': 'PR',
+    'FOR': 'PR', 'TRUE': 'PR', 'FALSE': 'PR', 'READ': 'PR', 'PRINTLN': 'PRINTLN',
+    'INT': 'TD', 'BOOLEAN': 'TD', 'STRING': 'TD',
+    'ID': 'ID', 'NUMERO': 'NUM', 'CADENA': 'CAD',
+    'ASIGNACION': 'ASIGN', 'PUNTO_COMA': 'PYC',
+    'ARROBA': 'OP_ARIT', 'HASH': 'OP_ARIT', 'AMP': 'OP_ARIT', 'PIPE': 'OP_ARIT',
+    'RELACIONAL': 'OP_REL',
+    'PAR_IZQ': 'PAR_IZQ', 'PAR_DER': 'PAR_DER',
+    'LLAVE_IZQ': 'LLAVE_IZQ', 'LLAVE_DER': 'LLAVE_DER',
+    'CARACTER_ILEGAL': 'ERR',
+}
+
 tokens = [
     'ID', 'NUMERO', 'CADENA',
     'ARROBA', 'HASH', 'AMP', 'PIPE',
@@ -52,7 +66,6 @@ def t_COMMENT_LINE(t):
     pass
 
 
-# Operadores compuestos antes de los de un carácter.
 t_RELACIONAL = r'>=|<=|==|!=|>|<'
 t_ASIGNACION = r'='
 t_ARROBA = r'@'
@@ -126,8 +139,25 @@ lexer = lex.lex()
 
 
 # ==========================================
-# 2. LÓGICA DE LA INTERFAZ GRÁFICA
+# 2. LÓGICA DE LA INTERFAZ
 # ==========================================
+
+EJEMPLO = """inicio
+int x;
+int y;
+int res;
+x = 5;
+y = 3;
+res = (x @ y);
+println(res);
+fin
+"""
+
+ultimo_arbol = None
+ultimos_errores_sint = []
+ultimo_ci = ""
+lista_tokens_actual = []
+
 
 def _reiniciar_estado_simbolos():
     return {
@@ -152,7 +182,6 @@ def _buscar_simbolo(nombre):
 
 
 def _tabla_simbolos_para_parser():
-    """Diccionario de solo lectura para el parser (primera declaración por nombre)."""
     vista = {}
     for entrada in tabla_simbolos_memoria:
         nombre = entrada['nombre']
@@ -162,7 +191,6 @@ def _tabla_simbolos_para_parser():
 
 
 def _tabla_para_codigo_intermedio():
-    """Diccionario {nombre: tipo} en orden de declaración."""
     vista = {}
     for entrada in tabla_simbolos_memoria:
         nombre = entrada['nombre']
@@ -171,146 +199,57 @@ def _tabla_para_codigo_intermedio():
     return vista
 
 
-# Último AST y errores sintácticos para generar CI bajo demanda.
-ultimo_arbol = None
-ultimos_errores_sint = []
-
-
-ultimo_ci = ""
+def _set_text(widget, texto, editable=False):
+    widget.config(state="normal")
+    widget.delete("1.0", "end")
+    widget.insert("end", texto)
+    if not editable:
+        widget.config(state="disabled")
 
 
 def _mostrar_codigo_intermedio(texto):
     global ultimo_ci
-    ultimo_ci = texto
-    widget_codigo.config(state="normal")
-    widget_codigo.delete("1.0", "end")
-    widget_codigo.insert("end", texto)
-    widget_codigo.config(state="disabled")
+    ultimo_ci = texto or ""
+    _set_text(widget_ci, ultimo_ci)
 
 
 def _mostrar_codigo_objeto(texto_ci_o_mensaje):
-    """Llena la tabla CO (DIR / CONTENIDO / HEX) a partir del CI o un mensaje."""
     for item in tabla_objeto.get_children():
         tabla_objeto.delete(item)
 
-    # Mensajes de error / vacío: una sola fila de aviso.
     if (
         not texto_ci_o_mensaje
         or not texto_ci_o_mensaje.strip()
         or texto_ci_o_mensaje.strip().startswith("No se puede")
         or texto_ci_o_mensaje.strip().startswith("No hay código")
     ):
-        msg = (texto_ci_o_mensaje or "No hay código intermedio. Genera primero el CI.").strip()
+        msg = (texto_ci_o_mensaje or "Genera primero el CI.").strip()
         tabla_objeto.insert("", tk.END, values=("", msg, ""))
         return
 
-    filas = generar_filas_objeto(texto_ci_o_mensaje)
-    for seccion, direccion, contenido, hex_txt in filas:
+    for seccion, direccion, contenido, hex_txt in generar_filas_objeto(texto_ci_o_mensaje):
         if seccion and not direccion and not contenido and not hex_txt:
-            # Encabezado de sección
             tabla_objeto.insert("", tk.END, values=(f"── {seccion} ──", "", ""))
         else:
             tabla_objeto.insert("", tk.END, values=(direccion, contenido, hex_txt))
 
 
-def _indice_pestana(nombre):
-    for i in range(pestanas.index("end")):
-        if pestanas.tab(i, "text") == nombre:
-            return i
-    return None
-
-
-def _abrir_pestana_codigo():
-    idx = _indice_pestana("CI / CO")
-    if idx is not None:
-        pestanas.select(idx)
-
-
-def generar_y_mostrar_ci():
-    """Genera el código intermedio (.DATA / .CODE) y abre la pestaña CI / CO."""
-    global ultimo_arbol, ultimos_errores_sint
-
-    # Si aún no hay análisis, lo ejecuta primero.
-    if ultimo_arbol is None and not tabla_simbolos_memoria:
-        ejecutar_analisis()
-
-    if ultimos_errores_sint:
-        _mostrar_codigo_intermedio(
-            "No se puede generar código intermedio mientras haya errores sintácticos.\n"
-            "Corrige el programa y vuelve a analizar."
-        )
-        _mostrar_codigo_objeto("")
-    else:
-        texto = generar_codigo_intermedio(
-            _tabla_para_codigo_intermedio(),
-            ultimo_arbol,
-        )
-        _mostrar_codigo_intermedio(texto)
-
-    _abrir_pestana_codigo()
-
-
-def generar_y_mostrar_co():
-    """Genera el código objeto (DIR / CONTENIDO / HEX) a partir del CI."""
-    global ultimo_arbol, ultimos_errores_sint, ultimo_ci
-
-    # Asegura CI fresco antes de codificar.
-    if not ultimo_ci.strip() or ultimo_arbol is None:
-        generar_y_mostrar_ci()
-
-    if ultimos_errores_sint:
-        _mostrar_codigo_objeto(
-            "No se puede generar código objeto mientras haya errores sintácticos."
-        )
-    else:
-        # Pasa el CI crudo para llenar la tabla estructurada.
-        _mostrar_codigo_objeto(ultimo_ci)
-
-    _abrir_pestana_codigo()
-
-
-def ejecutar_analisis():
-    try:
-        _ejecutar_analisis_interno()
-    except Exception as exc:
-        widget_errores_sint.config(state="normal")
-        widget_errores_sint.delete("1.0", "end")
-        widget_errores_sint.insert(
-            "end",
-            f"Error interno del analizador:\n{exc}\n",
-            "error",
-        )
-        widget_errores_sint.config(state="disabled")
-
-
-def _ejecutar_analisis_interno():
-    global ultimo_arbol, ultimos_errores_sint
+def _lexico_y_simbolos(codigo_fuente):
+    """Recorre el lexer: construye tokens, tabla de símbolos y errores léxicos."""
+    global lista_tokens_actual
 
     lista_errores.clear()
     tabla_simbolos_memoria.clear()
-    ultimo_arbol = None
-    ultimos_errores_sint = []
+    lista_tokens_actual = []
     lexer.lineno = 1
-
-    for item in tabla_lexemas.get_children():
-        tabla_lexemas.delete(item)
-    for item in tabla_errores.get_children():
-        tabla_errores.delete(item)
-    for item in tabla_simbolos.get_children():
-        tabla_simbolos.delete(item)
-    _mostrar_codigo_intermedio("")
-    _mostrar_codigo_objeto("")
-
-    codigo_fuente = cuadro_texto.get("1.0", tk.END)
     lexer.input(codigo_fuente)
-
-    lista_tokens = []
 
     contador_id = 1
     contador_posicion = 1
     estado = _reiniciar_estado_simbolos()
     profundidad_llaves = 0
     nombres_declarados = {}
+    lineas_tokens = []
 
     def reiniciar_declaracion():
         estado['tipo_pendiente'] = None
@@ -323,8 +262,9 @@ def _ejecutar_analisis_interno():
         if not tok:
             break
 
-        lista_tokens.append(tok)
-        tabla_lexemas.insert("", tk.END, values=(tok.value, tok.type, tok.lineno))
+        lista_tokens_actual.append(tok)
+        etiqueta = ETIQUETA_TOKEN.get(tok.type, tok.type)
+        lineas_tokens.append(f"{etiqueta}, {tok.value}")
 
         if tok.type == 'LLAVE_IZQ':
             profundidad_llaves += 1
@@ -339,7 +279,8 @@ def _ejecutar_analisis_interno():
             if estado['tipo_pendiente'] is not None:
                 if tok.value in nombres_declarados:
                     registrar_error(
-                        f"Identificador duplicado: '{tok.value}' ya declarado (línea {nombres_declarados[tok.value]})",
+                        f"Identificador duplicado: '{tok.value}' ya declarado "
+                        f"(línea {nombres_declarados[tok.value]})",
                         tok.lineno,
                         tok.lexpos,
                     )
@@ -382,29 +323,33 @@ def _ejecutar_analisis_interno():
 
         elif tok.type == 'PUNTO_COMA':
             reiniciar_declaracion()
-
         else:
             reiniciar_declaracion()
 
-    for datos in tabla_simbolos_memoria:
-        tabla_simbolos.insert("", tk.END, values=(
-            datos['id_int'],
-            datos['nombre'],
-            datos['tipo'],
-            datos['valor'],
-            datos['posicion'],
-            datos.get('ambito', 'Global'),
-        ))
+    return "\n".join(lineas_tokens)
 
-    if len(lista_errores) == 0:
-        tabla_errores.insert("", tk.END, values=("Ninguno", "-", "Análisis Limpio"))
-    else:
-        for error in lista_errores:
-            tabla_errores.insert("", tk.END, values=(error[0], error[1], error[2]))
 
-    if lista_tokens:
+def accion_tokens():
+    """Botón Tokens: análisis léxico → panel Tokens."""
+    codigo = cuadro_programa.get("1.0", tk.END)
+    texto = _lexico_y_simbolos(codigo)
+    _set_text(widget_tokens, texto)
+    _set_text(widget_sintaxis, "")
+    _mostrar_codigo_intermedio("")
+    _mostrar_codigo_objeto("")
+
+
+def accion_parsear():
+    """Botón Parsear: léxico + sintaxis → panel Sintaxis."""
+    global ultimo_arbol, ultimos_errores_sint
+
+    codigo = cuadro_programa.get("1.0", tk.END)
+    texto_tok = _lexico_y_simbolos(codigo)
+    _set_text(widget_tokens, texto_tok)
+
+    if lista_tokens_actual:
         parser = Parser(
-            tokens=lista_tokens,
+            tokens=lista_tokens_actual,
             tabla_simbolos_existente=_tabla_simbolos_para_parser(),
         )
         arbol, errores_sint = parser.parsear()
@@ -417,217 +362,220 @@ def _ejecutar_analisis_interno():
     ultimo_arbol = arbol
     ultimos_errores_sint = list(errores_sint)
 
-    widget_arbol.config(state="normal")
-    widget_arbol.delete("1.0", "end")
-    widget_arbol.insert("end", texto_arbol)
-    widget_arbol.config(state="disabled")
-
-    widget_errores_sint.config(state="normal")
-    widget_errores_sint.delete("1.0", "end")
     if errores_sint:
-        for err in errores_sint:
-            widget_errores_sint.insert("end", err + "\n", "error")
+        texto_arbol += "\n\n--- Errores sintácticos ---\n" + "\n".join(errores_sint)
+    _set_text(widget_sintaxis, texto_arbol)
+
+
+def accion_semantico():
+    """Botón Semántico: muestra tabla de símbolos / chequeos."""
+    accion_parsear()
+
+    lineas = ["Tabla de símbolos", "─" * 40]
+    if not tabla_simbolos_memoria:
+        lineas.append("(vacía)")
     else:
-        widget_errores_sint.insert("end", "✓ Sin errores sintácticos.")
-    widget_errores_sint.config(state="disabled")
+        lineas.append(f"{'ID':<4} {'Nombre':<12} {'Tipo':<10} {'Valor':<12} {'Ámbito'}")
+        for d in tabla_simbolos_memoria:
+            lineas.append(
+                f"{d['id_int']:<4} {d['nombre']:<12} {d['tipo']:<10} "
+                f"{str(d['valor']):<12} {d.get('ambito', 'Global')}"
+            )
+
+    if lista_errores:
+        lineas.append("")
+        lineas.append("Errores léxicos / semánticos")
+        lineas.append("─" * 40)
+        for mensaje, linea, pos in lista_errores:
+            lineas.append(f"L{linea}:{pos}  {mensaje}")
+    elif not ultimos_errores_sint:
+        lineas.append("")
+        lineas.append("✓ Sin errores semánticos detectados.")
+
+    # Semántico se muestra en Sintaxis (panel de análisis) manteniendo el layout.
+    actual = widget_sintaxis.get("1.0", "end-1c")
+    _set_text(widget_sintaxis, actual.rstrip() + "\n\n" + "\n".join(lineas))
+
+
+def accion_ejemplo():
+    _set_text(cuadro_programa, EJEMPLO, editable=True)
+    _set_text(widget_tokens, "")
+    _set_text(widget_sintaxis, "")
+    _mostrar_codigo_intermedio("")
+    _mostrar_codigo_objeto("")
+
+
+def accion_limpiar():
+    global ultimo_arbol, ultimos_errores_sint, ultimo_ci, lista_tokens_actual
+    ultimo_arbol = None
+    ultimos_errores_sint = []
+    ultimo_ci = ""
+    lista_tokens_actual = []
+    lista_errores.clear()
+    tabla_simbolos_memoria.clear()
+    _set_text(cuadro_programa, "", editable=True)
+    _set_text(widget_tokens, "")
+    _set_text(widget_sintaxis, "")
+    _mostrar_codigo_intermedio("")
+    _mostrar_codigo_objeto("")
+
+
+def generar_y_mostrar_ci():
+    global ultimo_arbol, ultimos_errores_sint
+
+    if ultimo_arbol is None and not tabla_simbolos_memoria:
+        accion_parsear()
+
+    if ultimos_errores_sint:
+        _mostrar_codigo_intermedio(
+            "No se puede generar CI mientras haya errores sintácticos.\n"
+            "Corrige el programa y vuelve a Parsear."
+        )
+        _mostrar_codigo_objeto("")
+        return
+
+    texto = generar_codigo_intermedio(
+        _tabla_para_codigo_intermedio(),
+        ultimo_arbol,
+    )
+    _mostrar_codigo_intermedio(texto)
+
+
+def generar_y_mostrar_co():
+    global ultimo_ci
+
+    if not ultimo_ci.strip() or ultimo_arbol is None:
+        generar_y_mostrar_ci()
+
+    if ultimos_errores_sint:
+        _mostrar_codigo_objeto(
+            "No se puede generar CO mientras haya errores sintácticos."
+        )
+        return
+
+    _mostrar_codigo_objeto(ultimo_ci)
 
 
 # ==========================================
-# 3. VENTANA (TKINTER)
+# 3. VENTANA — interfaz Genesis (layout nuevo)
 # ==========================================
 
+BG = "#dce3ea"
 ventana = tk.Tk()
-ventana.title("Lenguaje Genesis — Análisis, CI y Código Objeto")
-ventana.geometry("1280x860")
+ventana.title("Genesis")
+ventana.geometry("1180x720")
+ventana.configure(bg=BG)
 
-contenedor = tk.Frame(ventana, padx=20, pady=20)
-contenedor.pack(expand=True, fill="both")
+raiz = tk.Frame(ventana, bg=BG, padx=10, pady=8)
+raiz.pack(expand=True, fill="both")
 
-titulo = tk.Label(contenedor, text="Analizador Genesis — Léxico, Sintáctico, CI y CO")
-titulo.config(font=("Arial", 16, "bold"))
-titulo.pack(side="top", anchor="n", pady=(0, 20))
+# --- Cabecera: título + botones ---
+cabecera = tk.Frame(raiz, bg=BG)
+cabecera.pack(fill="x", pady=(0, 6))
 
-lbl_editor = tk.Label(contenedor, text="1. Ingresa el código fuente:", font=("Arial", 12, "bold"))
-lbl_editor.pack(anchor="w")
+tk.Label(
+    cabecera, text="Genesis", bg=BG, font=("Arial", 18, "bold"),
+).pack(side="left", padx=(4, 0))
 
-cuadro_texto = tk.Text(contenedor, height=10, width=80, font=("Courier", 11))
-cuadro_texto.pack(pady=5)
+frame_botones = tk.Frame(cabecera, bg=BG)
+frame_botones.pack(side="right")
 
-frame_botones = tk.Frame(contenedor)
-frame_botones.pack(pady=15)
-
-btn_analizar = tk.Button(
-    frame_botones,
-    text="Analizar",
-    bg="#4CAF50",
-    fg="white",
-    font=("Arial", 12, "bold"),
-    command=ejecutar_analisis,
+estilo_btn = {"font": ("Arial", 11), "width": 10, "relief": "raised", "bd": 1}
+tk.Button(frame_botones, text="Tokens", command=accion_tokens, **estilo_btn).pack(
+    side="left", padx=3,
 )
-btn_analizar.pack(side="left", padx=8)
+tk.Button(frame_botones, text="Parsear", command=accion_parsear, **estilo_btn).pack(
+    side="left", padx=3,
+)
+tk.Button(frame_botones, text="Semántico", command=accion_semantico, **estilo_btn).pack(
+    side="left", padx=3,
+)
+tk.Button(
+    frame_botones, text="Ejemplo", command=accion_ejemplo,
+    bg="#4CAF50", fg="white", font=("Arial", 11, "bold"), width=10, relief="raised", bd=1,
+).pack(side="left", padx=3)
+tk.Button(frame_botones, text="Limpiar", command=accion_limpiar, **estilo_btn).pack(
+    side="left", padx=3,
+)
+
+# --- Fila superior: Programa | Tokens | Sintaxis ---
+fila_sup = tk.Frame(raiz, bg=BG)
+fila_sup.pack(expand=True, fill="both")
+fila_sup.columnconfigure(0, weight=1, uniform="sup")
+fila_sup.columnconfigure(1, weight=1, uniform="sup")
+fila_sup.columnconfigure(2, weight=1, uniform="sup")
+fila_sup.rowconfigure(1, weight=1)
+
+tk.Label(fila_sup, text="Programa", bg=BG, font=("Arial", 11, "bold")).grid(
+    row=0, column=0, sticky="w",
+)
+tk.Label(fila_sup, text="Tokens", bg=BG, font=("Arial", 11, "bold")).grid(
+    row=0, column=1, sticky="w",
+)
+tk.Label(fila_sup, text="Sintaxis", bg=BG, font=("Arial", 11, "bold")).grid(
+    row=0, column=2, sticky="w",
+)
+
+cuadro_programa = scrolledtext.ScrolledText(
+    fila_sup, font=("Courier New", 11), wrap="none", height=14,
+)
+cuadro_programa.grid(row=1, column=0, sticky="nsew", padx=(0, 4), pady=(2, 6))
+
+widget_tokens = scrolledtext.ScrolledText(
+    fila_sup, font=("Courier New", 10), wrap="none", height=14, state="disabled",
+)
+widget_tokens.grid(row=1, column=1, sticky="nsew", padx=4, pady=(2, 6))
+
+widget_sintaxis = scrolledtext.ScrolledText(
+    fila_sup, font=("Courier New", 10), wrap="none", height=14, state="disabled",
+)
+widget_sintaxis.grid(row=1, column=2, sticky="nsew", padx=(4, 0), pady=(2, 6))
+
+# --- Fila inferior: CI (izq) | CO (der, espacio bajo Sintaxis) ---
+fila_inf = tk.Frame(raiz, bg=BG)
+fila_inf.pack(expand=True, fill="both")
+fila_inf.columnconfigure(0, weight=1, uniform="inf")
+fila_inf.columnconfigure(1, weight=1, uniform="inf")
+fila_inf.rowconfigure(1, weight=1)
 
 btn_ci = tk.Button(
-    frame_botones,
-    text="CI",
-    bg="#2196F3",
-    fg="white",
-    font=("Arial", 12, "bold"),
-    command=generar_y_mostrar_ci,
-    width=6,
+    fila_inf, text="CI", bg="#2196F3", fg="white",
+    font=("Arial", 11, "bold"), width=6, command=generar_y_mostrar_ci,
 )
-btn_ci.pack(side="left", padx=8)
+btn_ci.grid(row=0, column=0, sticky="w", pady=(0, 2))
 
 btn_co = tk.Button(
-    frame_botones,
-    text="CO",
-    bg="#9C27B0",
-    fg="white",
-    font=("Arial", 12, "bold"),
-    command=generar_y_mostrar_co,
-    width=6,
+    fila_inf, text="CO", bg="#9C27B0", fg="white",
+    font=("Arial", 11, "bold"), width=6, command=generar_y_mostrar_co,
 )
-btn_co.pack(side="left", padx=8)
+btn_co.grid(row=0, column=1, sticky="w", pady=(0, 2))
 
-lbl_resultados = tk.Label(contenedor, text="2. Resultados del Análisis:", font=("Arial", 12, "bold"))
-lbl_resultados.pack(anchor="w", pady=(10, 5))
-
-pestanas = ttk.Notebook(contenedor)
-pestanas.pack(expand=True, fill="both")
-
-frame_lexemas = ttk.Frame(pestanas)
-pestanas.add(frame_lexemas, text="Zona de Lexemas")
-columnas_lex = ("Lexema", "Componente Léxico (Token)", "Línea")
-tabla_lexemas = ttk.Treeview(frame_lexemas, columns=columnas_lex, show="headings")
-for col in columnas_lex:
-    tabla_lexemas.heading(col, text=col)
-tabla_lexemas.pack(expand=True, fill="both")
-
-frame_errores = ttk.Frame(pestanas)
-pestanas.add(frame_errores, text="Zona de Errores")
-columnas_err = ("Error Encontrado", "Línea", "Posición de Memoria")
-tabla_errores = ttk.Treeview(frame_errores, columns=columnas_err, show="headings")
-for col in columnas_err:
-    tabla_errores.heading(col, text=col)
-tabla_errores.pack(expand=True, fill="both")
-
-frame_simbolos = ttk.Frame(pestanas)
-pestanas.add(frame_simbolos, text="Tabla de Símbolos")
-
-columnas_sim = ("ID Interno", "Identificador", "Tipo", "Valor", "Posición", "Ámbito")
-tabla_simbolos = ttk.Treeview(frame_simbolos, columns=columnas_sim, show="headings")
-
-for col in columnas_sim:
-    tabla_simbolos.heading(col, text=col)
-    tabla_simbolos.column(col, width=130, anchor="center")
-
-tabla_simbolos.pack(expand=True, fill="both")
-
-frame_ast = ttk.Frame(pestanas)
-pestanas.add(frame_ast, text="Árbol Sintáctico")
-widget_arbol = scrolledtext.ScrolledText(
-    frame_ast,
-    height=12,
-    font=("Courier New", 10),
-    wrap="none",
-    state="disabled",
+widget_ci = scrolledtext.ScrolledText(
+    fila_inf, font=("Courier New", 10), wrap="none", height=14, state="disabled",
 )
-widget_arbol.pack(expand=True, fill="both")
+widget_ci.grid(row=1, column=0, sticky="nsew", padx=(0, 4))
 
-frame_err_sint = ttk.Frame(pestanas)
-pestanas.add(frame_err_sint, text="Errores Sintácticos")
-widget_errores_sint = scrolledtext.ScrolledText(
-    frame_err_sint,
-    height=8,
-    font=("Courier New", 10),
-    wrap="word",
-    state="disabled",
-)
-widget_errores_sint.tag_config("error", foreground="red")
-widget_errores_sint.pack(expand=True, fill="both")
+# Panel CO: tabla DIR / CONTENIDO / HEX (como el pizarrón)
+frame_co = tk.Frame(fila_inf, bg=BG)
+frame_co.grid(row=1, column=1, sticky="nsew", padx=(4, 0))
+frame_co.rowconfigure(0, weight=1)
+frame_co.columnconfigure(0, weight=1)
 
-# Pestaña combinada: CI a la izquierda, CO a la derecha (espacio libre bajo Sintaxis).
-frame_codigo = ttk.Frame(pestanas)
-pestanas.add(frame_codigo, text="CI / CO")
-frame_codigo.columnconfigure(0, weight=1, uniform="codigo")
-frame_codigo.columnconfigure(1, weight=1, uniform="codigo")
-frame_codigo.rowconfigure(0, weight=1)
-
-frame_ci_col = ttk.Frame(frame_codigo)
-frame_ci_col.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-btn_ci_panel = tk.Button(
-    frame_ci_col,
-    text="CI",
-    bg="#2196F3",
-    fg="white",
-    font=("Arial", 11, "bold"),
-    command=generar_y_mostrar_ci,
-    width=6,
-)
-btn_ci_panel.pack(anchor="w", pady=(4, 2))
-widget_codigo = scrolledtext.ScrolledText(
-    frame_ci_col,
-    height=12,
-    font=("Courier New", 10),
-    wrap="none",
-    state="disabled",
-)
-widget_codigo.pack(expand=True, fill="both")
-
-frame_co_col = ttk.Frame(frame_codigo)
-frame_co_col.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-btn_co_panel = tk.Button(
-    frame_co_col,
-    text="CO",
-    bg="#9C27B0",
-    fg="white",
-    font=("Arial", 11, "bold"),
-    command=generar_y_mostrar_co,
-    width=6,
-)
-btn_co_panel.pack(anchor="w", pady=(4, 2))
-
-# Orden de columnas como en el pizarrón: DIR | CONTENIDO | HEX
-frame_co_tabla = ttk.Frame(frame_co_col)
-frame_co_tabla.pack(expand=True, fill="both")
 columnas_co = ("DIR", "CONTENIDO", "HEX")
-tabla_objeto = ttk.Treeview(
-    frame_co_tabla,
-    columns=columnas_co,
-    show="headings",
-    height=12,
-)
+tabla_objeto = ttk.Treeview(frame_co, columns=columnas_co, show="headings", height=12)
 tabla_objeto.heading("DIR", text="DIR")
 tabla_objeto.heading("CONTENIDO", text="CONTENIDO")
 tabla_objeto.heading("HEX", text="HEX")
 tabla_objeto.column("DIR", width=140, minwidth=100, anchor="w", stretch=False)
-tabla_objeto.column("CONTENIDO", width=210, minwidth=140, anchor="w", stretch=False)
-tabla_objeto.column("HEX", width=140, minwidth=120, anchor="w", stretch=False)
-scroll_co_y = ttk.Scrollbar(frame_co_tabla, orient="vertical", command=tabla_objeto.yview)
-scroll_co_x = ttk.Scrollbar(frame_co_tabla, orient="horizontal", command=tabla_objeto.xview)
+tabla_objeto.column("CONTENIDO", width=220, minwidth=120, anchor="w", stretch=True)
+tabla_objeto.column("HEX", width=140, minwidth=100, anchor="w", stretch=False)
+
+scroll_co_y = ttk.Scrollbar(frame_co, orient="vertical", command=tabla_objeto.yview)
+scroll_co_x = ttk.Scrollbar(frame_co, orient="horizontal", command=tabla_objeto.xview)
 tabla_objeto.configure(yscrollcommand=scroll_co_y.set, xscrollcommand=scroll_co_x.set)
 tabla_objeto.grid(row=0, column=0, sticky="nsew")
 scroll_co_y.grid(row=0, column=1, sticky="ns")
 scroll_co_x.grid(row=1, column=0, sticky="ew")
-frame_co_tabla.rowconfigure(0, weight=1)
-frame_co_tabla.columnconfigure(0, weight=1)
 
 if __name__ == "__main__":
     ventana.mainloop()
-
-def run_demo_f5(event=None):
-    cuadro_texto.delete("1.0", "end")
-    cuadro_texto.insert("1.0", """inicio
-int x;
-int y;
-int res;
-x = 5;
-y = 3;
-res = (x @ y);
-println res;
-fin""")
-    ventana.after(100, ejecutar_analisis)
-    ventana.after(300, generar_y_mostrar_ci)
-    ventana.after(500, generar_y_mostrar_co)
-    ventana.after(700, lambda: pestanas.select(5))
-
-ventana.bind('<F5>', run_demo_f5)
