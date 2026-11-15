@@ -512,3 +512,37 @@ def generar_codigo_objeto(texto_ci: str) -> str:
     if "No se puede generar" in texto_ci:
         return texto_ci
     return GeneradorObjeto().generar_desde_ci(texto_ci)
+
+
+def generar_filas_objeto(texto_ci: str) -> List[Tuple[str, str, str, str]]:
+    """Devuelve filas (seccion, dir, contenido, hex) para la tabla de la GUI.
+
+    seccion es 'DATOS', 'CÓDIGO' o '' (fila separadora / mensaje).
+    """
+    if not texto_ci or not texto_ci.strip():
+        return [("", "", "No hay código intermedio. Genera primero el CI.", "")]
+    if "No se puede generar" in texto_ci:
+        return [("", "", texto_ci.strip().splitlines()[0], "")]
+
+    gen = GeneradorObjeto()
+    gen.generar_desde_ci(texto_ci)
+    filas: List[Tuple[str, str, str, str]] = []
+
+    filas.append(("DATOS", "", "", ""))
+    if not gen.filas_datos:
+        filas.append(("DATOS", _dir_binaria(0), "", ""))
+    else:
+        for offset, contenido, hex_txt in gen.filas_datos:
+            filas.append(("DATOS", _dir_binaria(offset), contenido, hex_txt))
+
+    filas.append(("CÓDIGO", "", "", ""))
+    if not gen.filas_codigo:
+        filas.append(("CÓDIGO", "", "(sin instrucciones)", ""))
+    else:
+        for addr, bs in gen.filas_codigo:
+            if not bs:
+                continue
+            filas.append(
+                ("CÓDIGO", _dir_binaria(addr), _bytes_a_binario(bs), _bytes_a_hex(bs))
+            )
+    return filas

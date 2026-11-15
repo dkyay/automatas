@@ -4,7 +4,7 @@ from tkinter import scrolledtext
 import ply.lex as lex
 from parser import Parser
 from codigo_intermedio import generar_codigo_intermedio
-from codigo_objeto import generar_codigo_objeto
+from codigo_objeto import generar_codigo_objeto, generar_filas_objeto
 
 # ==========================================
 # 1. DEFINICIÓN DEL ANALIZADOR LÉXICO
@@ -188,11 +188,29 @@ def _mostrar_codigo_intermedio(texto):
     widget_codigo.config(state="disabled")
 
 
-def _mostrar_codigo_objeto(texto):
-    widget_objeto.config(state="normal")
-    widget_objeto.delete("1.0", "end")
-    widget_objeto.insert("end", texto)
-    widget_objeto.config(state="disabled")
+def _mostrar_codigo_objeto(texto_ci_o_mensaje):
+    """Llena la tabla CO (DIR / CONTENIDO / HEX) a partir del CI o un mensaje."""
+    for item in tabla_objeto.get_children():
+        tabla_objeto.delete(item)
+
+    # Mensajes de error / vacío: una sola fila de aviso.
+    if (
+        not texto_ci_o_mensaje
+        or not texto_ci_o_mensaje.strip()
+        or texto_ci_o_mensaje.strip().startswith("No se puede")
+        or texto_ci_o_mensaje.strip().startswith("No hay código")
+    ):
+        msg = (texto_ci_o_mensaje or "No hay código intermedio. Genera primero el CI.").strip()
+        tabla_objeto.insert("", tk.END, values=("", msg, ""))
+        return
+
+    filas = generar_filas_objeto(texto_ci_o_mensaje)
+    for seccion, direccion, contenido, hex_txt in filas:
+        if seccion and not direccion and not contenido and not hex_txt:
+            # Encabezado de sección
+            tabla_objeto.insert("", tk.END, values=(f"── {seccion} ──", "", ""))
+        else:
+            tabla_objeto.insert("", tk.END, values=(direccion, contenido, hex_txt))
 
 
 def _indice_pestana(nombre):
@@ -242,11 +260,11 @@ def generar_y_mostrar_co():
 
     if ultimos_errores_sint:
         _mostrar_codigo_objeto(
-            "No se puede generar código objeto mientras haya errores sintácticos.\n"
-            "Corrige el programa y vuelve a analizar."
+            "No se puede generar código objeto mientras haya errores sintácticos."
         )
     else:
-        _mostrar_codigo_objeto(generar_codigo_objeto(ultimo_ci))
+        # Pasa el CI crudo para llenar la tabla estructurada.
+        _mostrar_codigo_objeto(ultimo_ci)
 
     _abrir_pestana_codigo()
 
@@ -564,14 +582,25 @@ btn_co_panel = tk.Button(
     width=6,
 )
 btn_co_panel.pack(anchor="w", pady=(4, 2))
-widget_objeto = scrolledtext.ScrolledText(
+columnas_co = ("DIR", "CONTENIDO", "HEX")
+tabla_objeto = ttk.Treeview(
     frame_co_col,
+    columns=columnas_co,
+    show="headings",
     height=12,
-    font=("Courier New", 9),
-    wrap="none",
-    state="disabled",
 )
-widget_objeto.pack(expand=True, fill="both")
+tabla_objeto.heading("DIR", text="DIR")
+tabla_objeto.heading("CONTENIDO", text="CONTENIDO")
+tabla_objeto.heading("HEX", text="HEX")
+tabla_objeto.column("DIR", width=160, anchor="w")
+tabla_objeto.column("CONTENIDO", width=280, anchor="w")
+tabla_objeto.column("HEX", width=140, anchor="w")
+scroll_co_y = ttk.Scrollbar(frame_co_col, orient="vertical", command=tabla_objeto.yview)
+scroll_co_x = ttk.Scrollbar(frame_co_col, orient="horizontal", command=tabla_objeto.xview)
+tabla_objeto.configure(yscrollcommand=scroll_co_y.set, xscrollcommand=scroll_co_x.set)
+scroll_co_y.pack(side="right", fill="y")
+scroll_co_x.pack(side="bottom", fill="x")
+tabla_objeto.pack(expand=True, fill="both")
 
 if __name__ == "__main__":
     ventana.mainloop()
