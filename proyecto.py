@@ -438,7 +438,7 @@ def _ejecutar_analisis_interno():
 
 ventana = tk.Tk()
 ventana.title("Lenguaje Genesis — Análisis, CI y Código Objeto")
-ventana.geometry("1100x820")
+ventana.geometry("1280x860")
 
 contenedor = tk.Frame(ventana, padx=20, pady=20)
 contenedor.pack(expand=True, fill="both")
@@ -548,9 +548,12 @@ widget_errores_sint.pack(expand=True, fill="both")
 # Pestaña combinada: CI a la izquierda, CO a la derecha (espacio libre bajo Sintaxis).
 frame_codigo = ttk.Frame(pestanas)
 pestanas.add(frame_codigo, text="CI / CO")
+frame_codigo.columnconfigure(0, weight=1, uniform="codigo")
+frame_codigo.columnconfigure(1, weight=1, uniform="codigo")
+frame_codigo.rowconfigure(0, weight=1)
 
 frame_ci_col = ttk.Frame(frame_codigo)
-frame_ci_col.pack(side="left", expand=True, fill="both", padx=(0, 4))
+frame_ci_col.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
 btn_ci_panel = tk.Button(
     frame_ci_col,
     text="CI",
@@ -571,7 +574,7 @@ widget_codigo = scrolledtext.ScrolledText(
 widget_codigo.pack(expand=True, fill="both")
 
 frame_co_col = ttk.Frame(frame_codigo)
-frame_co_col.pack(side="left", expand=True, fill="both", padx=(4, 0))
+frame_co_col.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
 btn_co_panel = tk.Button(
     frame_co_col,
     text="CO",
@@ -582,9 +585,13 @@ btn_co_panel = tk.Button(
     width=6,
 )
 btn_co_panel.pack(anchor="w", pady=(4, 2))
+
+# Orden de columnas como en el pizarrón: DIR | CONTENIDO | HEX
+frame_co_tabla = ttk.Frame(frame_co_col)
+frame_co_tabla.pack(expand=True, fill="both")
 columnas_co = ("DIR", "CONTENIDO", "HEX")
 tabla_objeto = ttk.Treeview(
-    frame_co_col,
+    frame_co_tabla,
     columns=columnas_co,
     show="headings",
     height=12,
@@ -592,15 +599,35 @@ tabla_objeto = ttk.Treeview(
 tabla_objeto.heading("DIR", text="DIR")
 tabla_objeto.heading("CONTENIDO", text="CONTENIDO")
 tabla_objeto.heading("HEX", text="HEX")
-tabla_objeto.column("DIR", width=160, anchor="w")
-tabla_objeto.column("CONTENIDO", width=280, anchor="w")
-tabla_objeto.column("HEX", width=140, anchor="w")
-scroll_co_y = ttk.Scrollbar(frame_co_col, orient="vertical", command=tabla_objeto.yview)
-scroll_co_x = ttk.Scrollbar(frame_co_col, orient="horizontal", command=tabla_objeto.xview)
+tabla_objeto.column("DIR", width=150, minwidth=120, anchor="w", stretch=False)
+tabla_objeto.column("CONTENIDO", width=260, minwidth=140, anchor="w", stretch=True)
+tabla_objeto.column("HEX", width=160, minwidth=120, anchor="w", stretch=False)
+scroll_co_y = ttk.Scrollbar(frame_co_tabla, orient="vertical", command=tabla_objeto.yview)
+scroll_co_x = ttk.Scrollbar(frame_co_tabla, orient="horizontal", command=tabla_objeto.xview)
 tabla_objeto.configure(yscrollcommand=scroll_co_y.set, xscrollcommand=scroll_co_x.set)
-scroll_co_y.pack(side="right", fill="y")
-scroll_co_x.pack(side="bottom", fill="x")
-tabla_objeto.pack(expand=True, fill="both")
+tabla_objeto.grid(row=0, column=0, sticky="nsew")
+scroll_co_y.grid(row=0, column=1, sticky="ns")
+scroll_co_x.grid(row=1, column=0, sticky="ew")
+frame_co_tabla.rowconfigure(0, weight=1)
+frame_co_tabla.columnconfigure(0, weight=1)
 
 if __name__ == "__main__":
     ventana.mainloop()
+
+def run_demo_f5(event=None):
+    cuadro_texto.delete("1.0", "end")
+    cuadro_texto.insert("1.0", """inicio
+int x;
+int y;
+int res;
+x = 5;
+y = 3;
+res = (x @ y);
+println res;
+fin""")
+    ventana.after(100, ejecutar_analisis)
+    ventana.after(300, generar_y_mostrar_ci)
+    ventana.after(500, generar_y_mostrar_co)
+    ventana.after(700, lambda: pestanas.select(5))
+
+ventana.bind('<F5>', run_demo_f5)
