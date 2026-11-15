@@ -149,7 +149,7 @@ int res;
 x = 5;
 y = 3;
 res = (x @ y);
-println(res);
+println res;
 fin
 """
 
@@ -423,7 +423,8 @@ def accion_limpiar():
 def generar_y_mostrar_ci():
     global ultimo_arbol, ultimos_errores_sint
 
-    if ultimo_arbol is None and not tabla_simbolos_memoria:
+    # Siempre parsear si aún no hay AST (p. ej. solo se pulsó Tokens).
+    if ultimo_arbol is None:
         accion_parsear()
 
     if ultimos_errores_sint:
@@ -451,6 +452,10 @@ def generar_y_mostrar_co():
         _mostrar_codigo_objeto(
             "No se puede generar CO mientras haya errores sintácticos."
         )
+        return
+
+    if not ultimo_ci.strip():
+        _mostrar_codigo_objeto("No hay código intermedio. Genera primero el CI.")
         return
 
     _mostrar_codigo_objeto(ultimo_ci)
@@ -567,8 +572,8 @@ tabla_objeto.heading("DIR", text="DIR")
 tabla_objeto.heading("CONTENIDO", text="CONTENIDO")
 tabla_objeto.heading("HEX", text="HEX")
 tabla_objeto.column("DIR", width=140, minwidth=100, anchor="w", stretch=False)
-tabla_objeto.column("CONTENIDO", width=220, minwidth=120, anchor="w", stretch=True)
-tabla_objeto.column("HEX", width=140, minwidth=100, anchor="w", stretch=False)
+tabla_objeto.column("CONTENIDO", width=200, minwidth=120, anchor="w", stretch=False)
+tabla_objeto.column("HEX", width=150, minwidth=120, anchor="w", stretch=False)
 
 scroll_co_y = ttk.Scrollbar(frame_co, orient="vertical", command=tabla_objeto.yview)
 scroll_co_x = ttk.Scrollbar(frame_co, orient="horizontal", command=tabla_objeto.xview)
