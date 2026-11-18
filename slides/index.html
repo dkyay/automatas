@@ -6,194 +6,187 @@
 <title>Genesis — CI y CO por plantillas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
-    --green: #4caf50;
-    --green-dark: #2e7d32;
-    --green-mid: #66bb6a;
-    --green-soft: #e8f5e9;
-    --green-pale: #f1f8f2;
-    --ink: #2f3a33;
-    --muted: #5a6b60;
-    --code-bg: #1e2a22;
-    --code-fg: #e8f5e9;
-    --slide-bg: #f7fbf8;
+    --blue: #2e6eed;
+    --blue-soft: #e8eefc;
+    --blue-mid: #5b7fd4;
+    --ink: #141f38;
+    --muted: #7a8494;
+    --panel: #f0f3f8;
+    --line: #e2e7f0;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
+    --slide-bg: #ffffff;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; height: 100%;
-    font-family: "Source Sans 3", system-ui, sans-serif;
-    background: #1a2420; color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    background: #0b1220; color: var(--ink);
   }
-  .deck {
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-  }
+  .deck { height: 100%; overflow: hidden; position: relative; }
   .slide {
     display: none;
     position: absolute; inset: 0;
     background: var(--slide-bg);
-    padding: 48px 64px 56px;
+    padding: 56px 72px 64px;
     overflow: hidden;
   }
   .slide.active { display: flex; flex-direction: column; }
-  .slide::before {
-    content: "";
-    position: absolute; right: -80px; top: -40px;
-    width: 420px; height: 420px;
-    background:
-      linear-gradient(135deg, rgba(102,187,106,.35), rgba(46,125,50,.15));
-    clip-path: polygon(20% 0%, 100% 0%, 100% 70%, 55% 100%, 0% 45%);
-    pointer-events: none;
-  }
-  .slide::after {
-    content: "";
-    position: absolute; right: 40px; bottom: -60px;
-    width: 280px; height: 280px;
-    background: rgba(76,175,80,.18);
-    clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
-    pointer-events: none;
+  .bar {
+    width: 72px; height: 5px; background: var(--blue);
+    margin-bottom: 22px; border-radius: 1px;
   }
   h1 {
-    margin: 0 0 8px;
-    font-size: clamp(28px, 3.4vw, 42px);
+    margin: 0 0 10px;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(34px, 3.8vw, 48px);
     font-weight: 700;
-    color: var(--green-dark);
+    color: var(--ink);
     letter-spacing: -0.02em;
-    position: relative; z-index: 1;
+    line-height: 1.1;
   }
   .eyebrow {
-    font-size: 13px; font-weight: 700; letter-spacing: .14em;
-    color: var(--green); text-transform: uppercase;
-    margin-bottom: 6px; position: relative; z-index: 1;
+    font-family: Inter, sans-serif;
+    font-size: 13px; font-weight: 600; letter-spacing: .16em;
+    color: var(--muted); text-transform: uppercase;
+    margin: 0 0 18px;
   }
   .lead {
-    color: var(--muted); font-size: 18px; margin: 0 0 28px;
-    max-width: 720px; position: relative; z-index: 1;
+    color: var(--muted); font-size: 16px; font-weight: 500;
+    margin: 0 0 28px; letter-spacing: .04em; text-transform: uppercase;
   }
-  .content { position: relative; z-index: 1; flex: 1; min-height: 0; }
+  .content { flex: 1; min-height: 0; }
   ul.flow { margin: 0 0 28px; padding: 0; list-style: none; }
   ul.flow li {
-    display: flex; gap: 14px; align-items: flex-start;
-    margin: 0 0 12px; font-size: 20px; color: var(--ink);
+    display: flex; gap: 16px; align-items: flex-start;
+    margin: 0 0 14px; font-size: 20px; color: var(--ink);
   }
   ul.flow .n {
-    flex: 0 0 28px; height: 28px; border-radius: 50%;
-    background: var(--green); color: #fff;
-    display: grid; place-items: center;
-    font-size: 14px; font-weight: 700; margin-top: 2px;
+    flex: 0 0 10px; width: 10px; height: 10px;
+    background: var(--blue); margin-top: 10px;
   }
   .grid-2 {
-    display: grid; grid-template-columns: 1fr 1.2fr; gap: 28px;
+    display: grid; grid-template-columns: 1fr 1.15fr; gap: 28px;
     align-items: start;
   }
   .grid-2.wide { grid-template-columns: 1fr 1fr; }
+  .panel {
+    background: var(--panel);
+    border-left: 3px solid var(--ink);
+    padding: 18px 20px;
+  }
+  .panel.accent { border-left-color: var(--blue); }
   .src {
     font-family: "JetBrains Mono", monospace;
-    background: #fff; border: 1px solid #cfe8d3;
-    border-left: 4px solid var(--green);
-    border-radius: 8px; padding: 16px 18px;
-    font-size: 16px; line-height: 1.55; white-space: pre;
+    background: var(--panel);
+    border-left: 3px solid var(--blue);
+    padding: 16px 18px;
+    font-size: 15px; line-height: 1.55; white-space: pre;
+    color: var(--ink);
   }
   table.ci {
     width: 100%; border-collapse: collapse;
     font-family: "JetBrains Mono", monospace; font-size: 14px;
-    background: #fff; border-radius: 8px; overflow: hidden;
-    box-shadow: 0 1px 0 #d7ebd9;
+    background: #fff;
   }
   table.ci th {
-    background: var(--green); color: #fff; text-align: left;
-    padding: 10px 12px; font-weight: 600; font-size: 13px;
+    background: var(--ink); color: #fff; text-align: left;
+    padding: 10px 12px; font-weight: 600; font-size: 12px;
+    letter-spacing: .06em; text-transform: uppercase;
+    font-family: Inter, sans-serif;
   }
   table.ci td {
-    padding: 8px 12px; border-bottom: 1px solid #e3f0e5;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    color: var(--ink);
   }
-  table.ci tr:nth-child(even) td { background: var(--green-pale); }
-  .divider {
-    height: 1px; background: #c8e0cc; margin: 22px 0;
-  }
+  table.ci tr:nth-child(even) td { background: var(--panel); }
+  .divider { height: 1px; background: var(--line); margin: 20px 0; }
   pre.code {
     margin: 0; background: var(--code-bg); color: var(--code-fg);
-    border-radius: 10px; padding: 18px 20px;
+    border-radius: 4px; padding: 20px 22px;
     font-family: "JetBrains Mono", monospace;
-    font-size: clamp(12px, 1.15vw, 15px);
-    line-height: 1.5; overflow: auto;
-    box-shadow: 0 8px 24px rgba(30,42,34,.18);
-    max-height: 100%;
+    font-size: clamp(12px, 1.1vw, 14.5px);
+    line-height: 1.55; overflow: auto; max-height: 100%;
   }
-  pre.code .kw { color: #81c784; }
-  pre.code .fn { color: #aed581; }
-  pre.code .str { color: #ffcc80; }
-  pre.code .cm { color: #7a9180; }
-  .shot {
-    width: 100%; height: auto; max-height: calc(100vh - 180px);
-    object-fit: contain; border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(30,42,34,.2);
-    background: #111; display: block; margin: 0 auto;
-  }
+  pre.code .kw { color: #93c5fd; }
+  pre.code .fn { color: #bfdbfe; }
+  pre.code .str { color: #fcd34d; }
+  pre.code .cm { color: #64748b; }
   .shot-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
-    height: calc(100vh - 180px);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    height: calc(100vh - 200px);
   }
   .shot-row figure {
     margin: 0; display: flex; flex-direction: column; min-height: 0;
   }
   .shot-row img {
     width: 100%; flex: 1; object-fit: contain;
-    border-radius: 8px; background: #111;
+    border: 1px solid var(--line); background: #0b1220;
   }
   .shot-row figcaption {
-    font-size: 13px; color: var(--muted); margin-top: 8px;
-    font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    font-size: 12px; color: var(--muted); margin-top: 10px;
+    font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
   }
-  .chips {
-    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;
-  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .chip {
-    background: var(--green-soft); color: var(--green-dark);
-    border: 1px solid #b7dfb9; border-radius: 999px;
+    background: var(--blue-soft); color: var(--blue);
+    border: 1px solid #c9d7f8;
     padding: 6px 12px; font-size: 13px; font-weight: 600;
   }
-  .regs {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
-  }
+  .regs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .reg {
-    background: #fff; border: 1px solid #cfe8d3; border-radius: 8px;
-    padding: 10px; text-align: center;
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 12px; text-align: center;
     font-family: "JetBrains Mono", monospace; font-size: 14px;
   }
-  .reg b { display: block; color: var(--green-dark); font-size: 16px; }
+  .reg b { display: block; color: var(--ink); font-size: 16px; }
   .reg span { color: var(--muted); font-size: 12px; }
   .nav {
-    position: fixed; bottom: 16px; right: 20px; z-index: 20;
-    display: flex; gap: 8px; align-items: center;
-    background: rgba(255,255,255,.92); border: 1px solid #cfe8d3;
-    border-radius: 999px; padding: 6px 10px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.08);
-    font-size: 13px; color: var(--muted);
+    position: fixed; bottom: 18px; right: 22px; z-index: 20;
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(255,255,255,.95); border: 1px solid var(--line);
+    padding: 6px 12px;
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    letter-spacing: .06em;
   }
   .nav button {
-    border: 0; background: var(--green); color: #fff;
-    width: 32px; height: 32px; border-radius: 50%;
-    cursor: pointer; font-weight: 700;
+    border: 0; background: var(--blue); color: #fff;
+    width: 30px; height: 30px; cursor: pointer; font-weight: 700;
   }
-  .nav button:disabled { opacity: .4; cursor: default; }
+  .nav button:disabled { opacity: .35; cursor: default; }
   .title-slide {
     justify-content: center;
+    background: #0b1220;
+    color: #fff;
   }
-  .title-slide h1 { font-size: clamp(36px, 5vw, 56px); max-width: 900px; }
+  .title-slide .bar { background: var(--blue); }
+  .title-slide h1 {
+    color: #fff;
+    font-size: clamp(40px, 5.2vw, 64px);
+    max-width: 920px;
+  }
+  .title-slide .lead { color: #94a3b8; text-transform: none; letter-spacing: 0; font-size: 18px; }
   .title-slide .meta {
-    margin-top: 24px; color: var(--muted); font-size: 18px;
+    margin-top: 28px; color: #94a3b8;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 22px;
   }
+  .title-slide .eyebrow { color: #64748b; }
   .callout {
-    background: #fff; border: 1px solid #cfe8d3; border-radius: 10px;
-    padding: 16px 18px; margin-bottom: 18px; font-size: 18px;
+    background: var(--panel);
+    border-left: 3px solid var(--blue);
+    padding: 18px 20px; margin-bottom: 22px; font-size: 18px;
   }
-  .callout strong { color: var(--green-dark); }
+  .callout strong { color: var(--ink); }
+  .section-label {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 22px; font-weight: 600; margin: 0 0 12px; color: var(--ink);
+  }
   @media (max-width: 900px) {
-    .slide { padding: 28px 22px 48px; }
+    .slide { padding: 32px 24px 56px; }
     .grid-2, .grid-2.wide, .shot-row { grid-template-columns: 1fr; }
     .shot-row { height: auto; }
   }
@@ -206,25 +199,23 @@
 <body>
 <div class="deck" id="deck">
 
-  <!-- 1 -->
   <section class="slide title-slide active">
-    <div class="eyebrow">Lenguaje Genesis</div>
-    <h1>Código Intermedio y Código Objeto</h1>
+    <div class="bar"></div>
+    <h1>Código Intermedio<br/>y Código Objeto</h1>
     <p class="lead">Generación por plantillas · Intel x86 16 bits (8086/MASM)</p>
     <div class="meta">Beltrán Salazar Norberto Rafael</div>
   </section>
 
-  <!-- 2: Diseño por plantillas (foto 1) -->
   <section class="slide">
-    <div class="eyebrow">Diseño</div>
+    <div class="bar"></div>
     <h1>Generación de código por plantillas</h1>
+    <p class="lead">Diseño · Flujo de datos</p>
     <div class="content">
-      <p class="lead" style="margin-bottom:16px">Flujo de datos</p>
       <ul class="flow">
-        <li><span class="n">1</span><span>Recorrido del arreglo de tokens / AST</span></li>
-        <li><span class="n">2</span><span>Mapeo de instrucciones (como <code>int x</code>) a bloques de Código Intermedio</span></li>
+        <li><span class="n"></span><span>Recorrido del arreglo de tokens / AST</span></li>
+        <li><span class="n"></span><span>Mapeo de instrucciones (como <code>int x</code>) a bloques de Código Intermedio</span></li>
       </ul>
-      <p class="lead" style="margin-bottom:12px">Estructura del Código Intermedio</p>
+      <p class="section-label">Estructura del Código Intermedio</p>
       <div class="grid-2">
         <div>
           <div class="src">int x;
@@ -255,16 +246,18 @@ int y;</div>
     </div>
   </section>
 
-  <!-- 3: Generación de CI (foto 2) -->
   <section class="slide">
-    <div class="eyebrow">Código Intermedio</div>
+    <div class="bar"></div>
     <h1>Generación de CI</h1>
+    <p class="lead">Plantilla para declaraciones</p>
     <div class="content grid-2 wide">
       <div>
-        <p class="lead">Plantilla para declaraciones</p>
-        <div class="src">TIPODATO VAR;
+        <div class="panel accent">
+          <div class="section-label">Plantilla</div>
+          <div class="src" style="border:0;background:transparent;padding:0">TIPODATO VAR;
 ↓
-VAR  DW/DD/DB  ?</div>
+VAR  DW / DD / DB  ?</div>
+        </div>
         <div class="chips">
           <span class="chip">int → DW</span>
           <span class="chip">bool → DB</span>
@@ -292,10 +285,10 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 4: Captura CI -->
   <section class="slide">
-    <div class="eyebrow">Ejemplo en Genesis</div>
+    <div class="bar"></div>
     <h1>CI generado en la interfaz</h1>
+    <p class="lead">Ejemplo en Genesis</p>
     <div class="content">
       <div class="shot-row">
         <figure>
@@ -310,17 +303,17 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 5: Arquitectura dos pasadas (foto 3) -->
   <section class="slide">
-    <div class="eyebrow">Código Objeto</div>
+    <div class="bar"></div>
     <h1>Generación de CO</h1>
+    <p class="lead">Arquitectura de dos pasadas</p>
     <div class="content">
       <div class="callout">
         <strong>Arquitectura de dos pasadas:</strong> recorremos la tabla del CI dos veces.
       </div>
       <ul class="flow">
-        <li><span class="n">1</span><span><strong>1ª pasada.</strong> Calcular tamaños y direcciones de las etiquetas.</span></li>
-        <li><span class="n">2</span><span><strong>2ª pasada.</strong> Generar código binario final con los saltos y referencias.</span></li>
+        <li><span class="n"></span><span><strong>1ª pasada.</strong> Calcular tamaños y direcciones de las etiquetas.</span></li>
+        <li><span class="n"></span><span><strong>2ª pasada.</strong> Generar código binario final con los saltos y referencias.</span></li>
       </ul>
       <div class="chips">
         <span class="chip">DIR · CONTENIDO · HEX</span>
@@ -330,13 +323,12 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 6: Pasada 1 (foto 4) -->
   <section class="slide">
-    <div class="eyebrow">Generación de CO · Pasada 1</div>
+    <div class="bar"></div>
     <h1>Direcciones y etiquetas</h1>
-    <p class="lead">Pasada a la tabla de CI línea por línea para obtener direcciones y etiquetas de saltos.</p>
+    <p class="lead">Generación de CO · Pasada 1</p>
     <div class="content">
-      <pre class="code"><span class="cm"># Idea de la 1ª pasada (como en clase) — en Genesis: GeneradorObjeto</span>
+      <pre class="code"><span class="cm"># Idea de la 1ª pasada — en Genesis: GeneradorObjeto</span>
 <span class="kw">for</span> linea <span class="kw">in</span> tabla_ci:
     <span class="kw">if</span> linea.nombre <span class="kw">and not</span> linea.op:          <span class="cm"># etiqueta</span>
         etiquetas[linea.nombre] = dir_temp
@@ -354,11 +346,10 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 7: Pasada 2 (foto 5) -->
   <section class="slide">
-    <div class="eyebrow">Generación de CO · Pasada 2</div>
+    <div class="bar"></div>
     <h1>Binario, hex e instrucción</h1>
-    <p class="lead">Pasada a la tabla de CI para obtener el contenido del CO en binario, hexadecimal y la instrucción original.</p>
+    <p class="lead">Generación de CO · Pasada 2</p>
     <div class="content">
       <pre class="code"><span class="cm"># 2ª pasada — emite DIR / CONTENIDO / HEX</span>
 <span class="kw">for</span> item <span class="kw">in</span> instrucciones_filtradas:
@@ -375,10 +366,10 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 8: MOV REG,REG (foto 6) -->
   <section class="slide">
-    <div class="eyebrow">Ejemplo de Código CO</div>
+    <div class="bar"></div>
     <h1>Generación de MOV REG, REG</h1>
+    <p class="lead">Ejemplo de Código CO</p>
     <div class="content grid-2 wide">
       <pre class="code"><span class="cm"># codigo_objeto.py</span>
 <span class="kw">if</span> dest <span class="kw">in</span> REG16 <span class="kw">and</span> src <span class="kw">in</span> REG16:
@@ -391,7 +382,7 @@ DIRECTIVA = {
 <span class="cm">#   ModR/M = 11 001 000 = C8</span>
 <span class="cm">#   → 89 C8</span></pre>
       <div>
-        <p class="lead" style="margin-bottom:12px">REG_BITS (registros 16 bits)</p>
+        <p class="section-label">REG_BITS (registros 16 bits)</p>
         <div class="regs">
           <div class="reg"><b>AX</b><span>000</span></div>
           <div class="reg"><b>CX</b><span>001</span></div>
@@ -411,10 +402,10 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 9: Captura CO -->
   <section class="slide">
-    <div class="eyebrow">Ejemplo en Genesis</div>
+    <div class="bar"></div>
     <h1>Tabla CO en la interfaz</h1>
+    <p class="lead">Ejemplo en Genesis</p>
     <div class="content">
       <div class="shot-row">
         <figure>
@@ -429,10 +420,10 @@ DIRECTIVA = {
     </div>
   </section>
 
-  <!-- 10: Ejemplo completo tablas -->
   <section class="slide">
-    <div class="eyebrow">Del ejemplo Genesis</div>
+    <div class="bar"></div>
     <h1>Del programa al CO</h1>
+    <p class="lead">Del ejemplo Genesis</p>
     <div class="content grid-2">
       <div>
         <div class="src">inicio
@@ -466,9 +457,8 @@ fin</div>
     </div>
   </section>
 
-  <!-- 11 -->
   <section class="slide title-slide">
-    <div class="eyebrow">Lenguaje Genesis</div>
+    <div class="bar"></div>
     <h1>Fin de la especificación</h1>
     <p class="lead">Código Intermedio · Código Objeto · Plantillas · 8086</p>
     <div class="meta">Beltrán Salazar Norberto Rafael</div>
