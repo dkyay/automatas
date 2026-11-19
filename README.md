@@ -8,6 +8,7 @@ Analizador léxico y sintáctico del **Lenguaje Genesis** (Python + PLY + Tkinte
 - `parser.py` — analizador sintáctico LL(1)
 - `ast_nodes.py` — nodos del AST
 - `analisis_estructuras.py` — análisis de estructuras
+- `tareas/` — entregables (PDF de codificación binaria y diapositivas CI/CO)
 
 ## Uso
 
