@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Genesis — CI y CO por plantillas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --blue: #2e6eed;
+    --blue-soft: #e8eefc;
+    --blue-mid: #5b7fd4;
+    --ink: #141f38;
+    --muted: #7a8494;
+    --panel: #f0f3f8;
+    --line: #e2e7f0;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
+    --slide-bg: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: Inter, system-ui, sans-serif;
+    background: #0b1220; color: var(--ink);
+  }
+  .deck { height: 100%; overflow: hidden; position: relative; }
+  .slide {
+    display: none;
+    position: absolute; inset: 0;
+    background: var(--slide-bg);
+    padding: 56px 72px 64px;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; flex-direction: column; }
+  .bar {
+    width: 72px; height: 5px; background: var(--blue);
+    margin-bottom: 22px; border-radius: 1px;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(34px, 3.8vw, 48px);
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .eyebrow {
+    font-family: Inter, sans-serif;
+    font-size: 13px; font-weight: 600; letter-spacing: .16em;
+    color: var(--muted); text-transform: uppercase;
+    margin: 0 0 18px;
+  }
+  .lead {
+    color: var(--muted); font-size: 16px; font-weight: 500;
+    margin: 0 0 28px; letter-spacing: .04em; text-transform: uppercase;
+  }
+  .content { flex: 1; min-height: 0; }
+  ul.flow { margin: 0 0 28px; padding: 0; list-style: none; }
+  ul.flow li {
+    display: flex; gap: 16px; align-items: flex-start;
+    margin: 0 0 14px; font-size: 20px; color: var(--ink);
+  }
+  ul.flow .n {
+    flex: 0 0 10px; width: 10px; height: 10px;
+    background: var(--blue); margin-top: 10px;
+  }
+  .grid-2 {
+    display: grid; grid-template-columns: 1fr 1.15fr; gap: 28px;
+    align-items: start;
+  }
+  .grid-2.wide { grid-template-columns: 1fr 1fr; }
+  .panel {
+    background: var(--panel);
+    border-left: 3px solid var(--ink);
+    padding: 18px 20px;
+  }
+  .panel.accent { border-left-color: var(--blue); }
+  .src {
+    font-family: "JetBrains Mono", monospace;
+    background: var(--panel);
+    border-left: 3px solid var(--blue);
+    padding: 16px 18px;
+    font-size: 15px; line-height: 1.55; white-space: pre;
+    color: var(--ink);
+  }
+  table.ci {
+    width: 100%; border-collapse: collapse;
+    font-family: "JetBrains Mono", monospace; font-size: 14px;
+    background: #fff;
+  }
+  table.ci th {
+    background: var(--ink); color: #fff; text-align: left;
+    padding: 10px 12px; font-weight: 600; font-size: 12px;
+    letter-spacing: .06em; text-transform: uppercase;
+    font-family: Inter, sans-serif;
+  }
+  table.ci td {
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+  table.ci tr:nth-child(even) td { background: var(--panel); }
+  .divider { height: 1px; background: var(--line); margin: 20px 0; }
+  pre.code {
+    margin: 0; background: var(--code-bg); color: var(--code-fg);
+    border-radius: 4px; padding: 20px 22px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: clamp(12px, 1.1vw, 14.5px);
+    line-height: 1.55; overflow: auto; max-height: 100%;
+  }
+  pre.code .kw { color: #93c5fd; }
+  pre.code .fn { color: #bfdbfe; }
+  pre.code .str { color: #fcd34d; }
+  pre.code .cm { color: #64748b; }
+  .shot-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    height: calc(100vh - 200px);
+  }
+  .shot-row figure {
+    margin: 0; display: flex; flex-direction: column; min-height: 0;
+  }
+  .shot-row img {
+    width: 100%; flex: 1; object-fit: contain;
+    border: 1px solid var(--line); background: #0b1220;
+  }
+  .shot-row figcaption {
+    font-size: 12px; color: var(--muted); margin-top: 10px;
+    font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip {
+    background: var(--blue-soft); color: var(--blue);
+    border: 1px solid #c9d7f8;
+    padding: 6px 12px; font-size: 13px; font-weight: 600;
+  }
+  .regs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .reg {
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 12px; text-align: center;
+    font-family: "JetBrains Mono", monospace; font-size: 14px;
+  }
+  .reg b { display: block; color: var(--ink); font-size: 16px; }
+  .reg span { color: var(--muted); font-size: 12px; }
+  .nav {
+    position: fixed; bottom: 18px; right: 22px; z-index: 20;
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(255,255,255,.95); border: 1px solid var(--line);
+    padding: 6px 12px;
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    letter-spacing: .06em;
+  }
+  .nav button {
+    border: 0; background: var(--blue); color: #fff;
+    width: 30px; height: 30px; cursor: pointer; font-weight: 700;
+  }
+  .nav button:disabled { opacity: .35; cursor: default; }
+  .title-slide {
+    justify-content: center;
+    background: #0b1220;
+    color: #fff;
+  }
+  .title-slide .bar { background: var(--blue); }
+  .title-slide h1 {
+    color: #fff;
+    font-size: clamp(40px, 5.2vw, 64px);
+    max-width: 920px;
+  }
+  .title-slide .lead { color: #94a3b8; text-transform: none; letter-spacing: 0; font-size: 18px; }
+  .title-slide .meta {
+    margin-top: 28px; color: #94a3b8;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 22px;
+  }
+  .title-slide .eyebrow { color: #64748b; }
+  .callout {
+    background: var(--panel);
+    border-left: 3px solid var(--blue);
+    padding: 18px 20px; margin-bottom: 22px; font-size: 18px;
+  }
+  .callout strong { color: var(--ink); }
+  .section-label {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 22px; font-weight: 600; margin: 0 0 12px; color: var(--ink);
+  }
+  @media (max-width: 900px) {
+    .slide { padding: 32px 24px 56px; }
+    .grid-2, .grid-2.wide, .shot-row { grid-template-columns: 1fr; }
+    .shot-row { height: auto; }
+  }
+  @media print {
+    .nav { display: none; }
+    .slide { display: flex !important; position: relative; page-break-after: always; min-height: 100vh; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <section class="slide title-slide active">
+    <div class="bar"></div>
+    <h1>Código Intermedio<br/>y Código Objeto</h1>
+    <p class="lead">Generación por plantillas · Intel x86 16 bits (8086/MASM)</p>
+    <div class="meta">Beltrán Salazar Norberto Rafael</div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Generación de código por plantillas</h1>
+    <p class="lead">Diseño · Flujo de datos</p>
+    <div class="content">
+      <ul class="flow">
+        <li><span class="n"></span><span>Recorrido del arreglo de tokens / AST</span></li>
+        <li><span class="n"></span><span>Mapeo de instrucciones (como <code>int x</code>) a bloques de Código Intermedio</span></li>
+      </ul>
+      <p class="section-label">Estructura del Código Intermedio</p>
+      <div class="grid-2">
+        <div>
+          <div class="src">int x;
+int y;</div>
+          <div class="divider"></div>
+          <div class="src">x = (x + y);</div>
+        </div>
+        <div>
+          <table class="ci">
+            <thead><tr><th>Nombre</th><th>Op</th><th>Arg</th></tr></thead>
+            <tbody>
+              <tr><td>x</td><td>DW</td><td>?</td></tr>
+              <tr><td>y</td><td>DW</td><td>?</td></tr>
+            </tbody>
+          </table>
+          <div class="divider"></div>
+          <table class="ci">
+            <thead><tr><th>Nombre</th><th>Op</th><th>Arg</th></tr></thead>
+            <tbody>
+              <tr><td></td><td>MOV</td><td>AX, x</td></tr>
+              <tr><td></td><td>MOV</td><td>BX, y</td></tr>
+              <tr><td></td><td>ADD</td><td>AX, BX</td></tr>
+              <tr><td></td><td>MOV</td><td>x, AX</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Generación de CI</h1>
+    <p class="lead">Plantilla para declaraciones</p>
+    <div class="content grid-2 wide">
+      <div>
+        <div class="panel accent">
+          <div class="section-label">Plantilla</div>
+          <div class="src" style="border:0;background:transparent;padding:0">TIPODATO VAR;
+↓
+VAR  DW / DD / DB  ?</div>
+        </div>
+        <div class="chips">
+          <span class="chip">int → DW</span>
+          <span class="chip">bool → DB</span>
+          <span class="chip">float → DD</span>
+          <span class="chip">string → DB</span>
+        </div>
+      </div>
+      <pre class="code"><span class="cm"># codigo_intermedio.py — plantilla de variables</span>
+DIRECTIVA = {
+    <span class="str">"int"</span>: <span class="str">"DW"</span>,
+    <span class="str">"bool"</span>: <span class="str">"DB"</span>,
+    <span class="str">"string"</span>: <span class="str">"DB"</span>,
+    <span class="str">"float"</span>: <span class="str">"DD"</span>,
+}
+
+<span class="kw">def</span> <span class="fn">_armar</span>(self):
+    variables = []
+    <span class="kw">for</span> nombre, tipo <span class="kw">in</span> self.variables:
+        directiva = DIRECTIVA.get(tipo)
+        <span class="kw">if</span> directiva:
+            variables.append(
+                self._dato(nombre, directiva, <span class="str">"?"</span>)
+            )
+    <span class="cm"># →  x       DW      ?</span></pre>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>CI generado en la interfaz</h1>
+    <p class="lead">Ejemplo en Genesis</p>
+    <div class="content">
+      <div class="shot-row">
+        <figure>
+          <img src="assets/shot-ci.jpg" alt="Panel CI de Genesis"/>
+          <figcaption>Panel CI — .DATA / .CODE</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/shot-full-ui.jpg" alt="Interfaz Genesis completa"/>
+          <figcaption>Programa → Tokens → Sintaxis → CI | CO</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Generación de CO</h1>
+    <p class="lead">Arquitectura de dos pasadas</p>
+    <div class="content">
+      <div class="callout">
+        <strong>Arquitectura de dos pasadas:</strong> recorremos la tabla del CI dos veces.
+      </div>
+      <ul class="flow">
+        <li><span class="n"></span><span><strong>1ª pasada.</strong> Calcular tamaños y direcciones de las etiquetas.</span></li>
+        <li><span class="n"></span><span><strong>2ª pasada.</strong> Generar código binario final con los saltos y referencias.</span></li>
+      </ul>
+      <div class="chips">
+        <span class="chip">DIR · CONTENIDO · HEX</span>
+        <span class="chip">8086 / MASM 16 bits</span>
+        <span class="chip">Little Endian</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Direcciones y etiquetas</h1>
+    <p class="lead">Generación de CO · Pasada 1</p>
+    <div class="content">
+      <pre class="code"><span class="cm"># Idea de la 1ª pasada — en Genesis: GeneradorObjeto</span>
+<span class="kw">for</span> linea <span class="kw">in</span> tabla_ci:
+    <span class="kw">if</span> linea.nombre <span class="kw">and not</span> linea.op:          <span class="cm"># etiqueta</span>
+        etiquetas[linea.nombre] = dir_temp
+        <span class="kw">continue</span>
+    <span class="kw">if</span> linea.op <span class="kw">in</span> directivas_ignoradas:
+        <span class="kw">continue</span>
+
+    info = codificar_instruccion(linea, …, solo_tam=<span class="kw">True</span>)
+    instrucciones_filtradas.append({
+        <span class="str">"linea"</span>: linea,
+        <span class="str">"dir"</span>: dir_temp,
+        <span class="str">"bytes"</span>: info.bytes,
+    })
+    dir_temp += info.bytes</pre>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Binario, hex e instrucción</h1>
+    <p class="lead">Generación de CO · Pasada 2</p>
+    <div class="content">
+      <pre class="code"><span class="cm"># 2ª pasada — emite DIR / CONTENIDO / HEX</span>
+<span class="kw">for</span> item <span class="kw">in</span> instrucciones_filtradas:
+    info = codificar_instruccion(item.linea, …, solo_tam=<span class="kw">False</span>)
+    codigo_co.append({
+        <span class="str">"dir"</span>: formatear_binario(item.dir, 16),
+        <span class="str">"contenido"</span>: formatear_binario(info.bin),
+        <span class="str">"hex"</span>: bin_a_hex(info.bin),
+        <span class="str">"referencia"</span>: <span class="str">f"{item.linea.op} {item.linea.arg}"</span>,
+    })
+
+<span class="cm"># En Genesis: generar_filas_objeto(texto_ci)
+# → filas (sección, dir, contenido, hex) para la GUI</span></pre>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Generación de MOV REG, REG</h1>
+    <p class="lead">Ejemplo de Código CO</p>
+    <div class="content grid-2 wide">
+      <pre class="code"><span class="cm"># codigo_objeto.py</span>
+<span class="kw">if</span> dest <span class="kw">in</span> REG16 <span class="kw">and</span> src <span class="kw">in</span> REG16:
+    opcode = <span class="str">0b10001001</span>   <span class="cm"># 89h</span>
+    modrm  = <span class="str">0b11</span> << 6 | REG16[src] << 3 | REG16[dest]
+    <span class="kw">return</span> [opcode, modrm]
+
+<span class="cm"># Ejemplo: MOV AX, CX</span>
+<span class="cm">#   dest=AX=000  src=CX=001</span>
+<span class="cm">#   ModR/M = 11 001 000 = C8</span>
+<span class="cm">#   → 89 C8</span></pre>
+      <div>
+        <p class="section-label">REG_BITS (registros 16 bits)</p>
+        <div class="regs">
+          <div class="reg"><b>AX</b><span>000</span></div>
+          <div class="reg"><b>CX</b><span>001</span></div>
+          <div class="reg"><b>DX</b><span>010</span></div>
+          <div class="reg"><b>BX</b><span>011</span></div>
+          <div class="reg"><b>SP</b><span>100</span></div>
+          <div class="reg"><b>BP</b><span>101</span></div>
+          <div class="reg"><b>SI</b><span>110</span></div>
+          <div class="reg"><b>DI</b><span>111</span></div>
+        </div>
+        <div class="chips" style="margin-top:20px">
+          <span class="chip">opcode 89h</span>
+          <span class="chip">mod = 11 (reg-reg)</span>
+          <span class="chip">MOV AX, CX → 89 C8</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Tabla CO en la interfaz</h1>
+    <p class="lead">Ejemplo en Genesis</p>
+    <div class="content">
+      <div class="shot-row">
+        <figure>
+          <img src="assets/shot-co.jpg" alt="Panel CO de Genesis"/>
+          <figcaption>CO — DIR · CONTENIDO · HEX</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/shot-full-ui.jpg" alt="Genesis con CI y CO"/>
+          <figcaption>Ejemplo: x=5, y=3, res=(x+y)</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="bar"></div>
+    <h1>Del programa al CO</h1>
+    <p class="lead">Del ejemplo Genesis</p>
+    <div class="content grid-2">
+      <div>
+        <div class="src">inicio
+int x; int y; int res;
+x = 5; y = 3;
+res = (x + y);
+println res;
+fin</div>
+        <div class="divider"></div>
+        <table class="ci">
+          <thead><tr><th>CI (.CODE)</th></tr></thead>
+          <tbody>
+            <tr><td>MOV x, 5</td></tr>
+            <tr><td>MOV y, 3</td></tr>
+            <tr><td>MOV AX, x</td></tr>
+            <tr><td>ADD AX, y</td></tr>
+            <tr><td>MOV res, AX</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <table class="ci">
+        <thead><tr><th>DIR</th><th>HEX</th><th>Ref</th></tr></thead>
+        <tbody>
+          <tr><td>0000</td><td>C7 06 00 00 05 00</td><td>MOV x, 5</td></tr>
+          <tr><td>0006</td><td>C7 06 02 00 03 00</td><td>MOV y, 3</td></tr>
+          <tr><td>000C</td><td>A1 00 00</td><td>MOV AX, x</td></tr>
+          <tr><td>000F</td><td>03 06 02 00</td><td>ADD AX, y</td></tr>
+          <tr><td>0013</td><td>A3 04 00</td><td>MOV res, AX</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide title-slide">
+    <div class="bar"></div>
+    <h1>Fin de la especificación</h1>
+    <p class="lead">Código Intermedio · Código Objeto · Plantillas · 8086</p>
+    <div class="meta">Beltrán Salazar Norberto Rafael</div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button id="prev" aria-label="Anterior">‹</button>
+  <span id="counter">1 / 1</span>
+  <button id="next" aria-label="Siguiente">›</button>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const counter = document.getElementById('counter');
+  const prev = document.getElementById('prev');
+  const next = document.getElementById('next');
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    counter.textContent = `${i + 1} / ${slides.length}`;
+    prev.disabled = i === 0;
+    next.disabled = i === slides.length - 1;
+    history.replaceState(null, '', `#${i + 1}`);
+  }
+
+  prev.onclick = () => show(i - 1);
+  next.onclick = () => show(i + 1);
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) {
+      e.preventDefault(); show(i + 1);
+    } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
+      e.preventDefault(); show(i - 1);
+    } else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+  });
+
+  const hash = parseInt((location.hash || '#1').slice(1), 10);
+  show(Number.isFinite(hash) ? hash - 1 : 0);
+</script>
+</body>
+</html>
